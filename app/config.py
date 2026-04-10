@@ -28,6 +28,7 @@ class Settings:
 
 
 def _parse_admin_ids(raw_value: str) -> set[int]:
+    """Одна строка `ADMIN_IDS`: id через запятую; пустые куски и запятая в конце игнорируются."""
     values = set()
     for chunk in raw_value.split(","):
         chunk = chunk.strip()

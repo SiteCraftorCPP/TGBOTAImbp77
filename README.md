@@ -31,12 +31,21 @@ python scripts/test_deepseek_keys.py --no-llm
 
 1. Подключите провайдера в **[@BotFather](https://t.me/BotFather)** и получите **`PAYMENT_PROVIDER_TOKEN`**.
 2. В `.env`: `PAYMENT_PROVIDER_TOKEN=...`, при необходимости `SUBSCRIPTION_PRICE_KOPECKS=10000` (100 ₽).
-3. Без токена пользователь видит подсказку; админ может выдать доступ: **`/grant_sub <user_id> <дней>`** (нужен `ADMIN_IDS`).
+3. Без токена пользователь видит подсказку; админ может выдать доступ: **`/grant_sub <user_id> <дней>`** (нужен id в списке админов).
 
 ## Админ
 
+Два (и более) админа: в `.env` одна строка **`ADMIN_IDS=id1,id2`** (лишняя запятая в конце допустима). Узнать свой Telegram user id можно у **[@userinfobot](https://t.me/userinfobot)**.
+
+- `/admin` — список админ-команд.
 - `/admin_stats` — счётчики и модель ответов.
 - `/grant_sub <telegram_user_id> <дней>` — продление подписки.
+
+## Перезапуск при сбое
+
+`main.py` в цикле перезапускает бота после **необработанного исключения** в `run()` (пауза **`BOT_RESTART_DELAY_SEC`**, по умолчанию 5 с). **Ctrl+C** и **`SystemExit`** (например, код 2 при ошибке сети на старте) процесс не зацикливают.
+
+На VPS удобно дублировать это **systemd** с `Restart=always` — пример: `deploy/tgbot.service.example`.
 
 ## Модель и лимиты
 
@@ -73,4 +82,4 @@ nano .env   # BOT_TOKEN, DEEPSEEK_API_KEYS, ...
 python main.py
 ```
 
-Обновление кода на VPS: `git pull` в каталоге репозитория, затем перезапуск процесса (systemd, screen, tmux и т.д.).
+Обновление кода на VPS: `git pull` в каталоге репозитория, затем перезапуск процесса (systemd, screen, tmux и т.д.). Юнит systemd: см. `deploy/tgbot.service.example`.
