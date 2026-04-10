@@ -1,6 +1,7 @@
 # Пример unit для systemd (Linux VPS).
-# Скопируйте в /etc/systemd/system/tgbot-imbp77.service, поправьте User и WorkingDirectory,
-# затем: sudo systemctl daemon-reload && sudo systemctl enable --now tgbot-imbp77
+# Поправьте User, WorkingDirectory и ExecStart под каталог, куда сделали git clone
+# (например /home/ВАШ_ЮЗЕР/bots/TGBOTAImbp77 или /opt/tgbot-imbp77).
+# Затем: sudo systemctl daemon-reload && sudo systemctl enable --now tgbot-imbp77
 
 [Unit]
 Description=TGBOTAImbp77 Telegram bot
@@ -9,10 +10,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/opt/TGBOTAImbp77
+User=ubuntu
+WorkingDirectory=/home/ubuntu/bots/TGBOTAImbp77
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/opt/TGBOTAImbp77/.venv/bin/python /opt/TGBOTAImbp77/main.py
+ExecStart=/home/ubuntu/bots/TGBOTAImbp77/.venv/bin/python /home/ubuntu/bots/TGBOTAImbp77/main.py
 Restart=always
 RestartSec=5
 

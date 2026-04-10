@@ -55,53 +55,68 @@ python scripts/test_deepseek_keys.py --no-llm
 
 Telegram: `TELEGRAM_PROXY_URL` или VPN. DeepSeek: `DEEPSEEK_PROXY_URL` / `HTTP_PROXY_URL`.
 
-## Git и деплой на VPS
+## Git и VPS
 
 Репозиторий: [github.com/SiteCraftorCPP/TGBOTAImbp77](https://github.com/SiteCraftorCPP/TGBOTAImbp77).
 
-**С ПК (первый пуш):** в каталоге проекта, после `git init` и коммита:
+### Первый раз: поставить бота на VPS (проекта ещё нет)
+
+Делается **только в новой папке** — остальные каталоги на сервере не трогаем.
+
+1. Зайти по SSH на VPS.
+
+2. Создать каталог под этот бот и клонировать репозиторий внутрь него (пример без `sudo`, в домашней директории):
 
 ```bash
-git remote add origin https://github.com/SiteCraftorCPP/TGBOTAImbp77.git
-git branch -M main
-git push -u origin main
-```
-
-Для входа по SSH замените URL на `git@github.com:SiteCraftorCPP/TGBOTAImbp77.git` (нужен ключ на машине, с которой пушите).
-
-**На VPS:** клонируйте и поднимите окружение отдельно; **не коммитьте** `.env` и файлы БД — на сервере создайте `.env` из `.env.example`.
-
-```bash
+mkdir -p ~/bots
+cd ~/bots
 git clone https://github.com/SiteCraftorCPP/TGBOTAImbp77.git
 cd TGBOTAImbp77
+```
+
+При желании другой путь — например `/opt/tgbot-imbp77`: сначала `sudo mkdir -p /opt/tgbot-imbp77`, выдать права своему пользователю, затем `cd /opt/tgbot-imbp77` и `git clone https://github.com/SiteCraftorCPP/TGBOTAImbp77.git .` (точка в конце — клон в **текущую** пустую папку).
+
+3. Виртуальное окружение и зависимости:
+
+```bash
+cd ~/bots/TGBOTAImbp77   # если клонировали как выше; иначе — ваш путь к проекту
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate
+pip install -U pip
 pip install -r requirements.txt
+```
+
+4. Настроить секреты (в git их нет):
+
+```bash
 cp .env.example .env
-nano .env   # BOT_TOKEN, DEEPSEEK_API_KEYS, ...
+nano .env   # BOT_TOKEN, DEEPSEEK_API_KEYS, ADMIN_IDS, при необходимости прокси
+```
+
+5. Проверка вручную:
+
+```bash
 python main.py
 ```
 
-### Обновление только этого бота на VPS
+Остановка: Ctrl+C. Дальше можно оформить автозапуск через **systemd** — шаблон: `deploy/tgbot.service.example` (в unit поправьте `WorkingDirectory` и `ExecStart` на **тот же** путь, где лежит клон, например `~/bots/TGBOTAImbp77`).
 
-Другие проекты на сервере **не трогаем**: все команды только внутри каталога клона (подставьте свой путь).
+### Уже установлен: обновить код с GitHub
+
+Только зайти **в каталог этого клона** (тот же `cd`, что в п. 2–3), больше никуда не переходить:
 
 ```bash
-# Один раз задайте каталог клона этого репозитория:
-export BOT_DIR=/полный/путь/к/TGBOTAImbp77
-
-cd "$BOT_DIR" || exit 1
-pwd   # убедитесь, что это именно TGBOTAImbp77
+cd ~/bots/TGBOTAImbp77
 git pull origin main
-./.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements.txt
 ```
 
-Файлы **`.env`** и **`bot.db`** в репозиторий не входят и `git pull` их не перезапишет. Затем перезапустите **только** процесс этого бота (пример для systemd):
+`.env` и `bot.db` репозиторием не затираются. Затем перезапуск процесса бота (`systemctl restart …`, screen/tmux или снова `python main.py`).
+
+### Пуш с разработческого ПК
 
 ```bash
-sudo systemctl restart tgbot-imbp77
+git add -A && git commit -m "..." && git push origin main
 ```
 
-Если бот в screen/tmux — зайдите в ту же сессию и перезапустите `python main.py` вручную.
-
-Юнит systemd: `deploy/tgbot.service.example`.
+Для SSH-URL: `git@github.com:SiteCraftorCPP/TGBOTAImbp77.git`.
