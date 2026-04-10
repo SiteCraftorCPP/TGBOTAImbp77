@@ -45,7 +45,7 @@ python scripts/test_deepseek_keys.py --no-llm
 
 `main.py` в цикле перезапускает бота после **необработанного исключения** в `run()` (пауза **`BOT_RESTART_DELAY_SEC`**, по умолчанию 5 с). **Ctrl+C** и **`SystemExit`** (например, код 2 при ошибке сети на старте) процесс не зацикливают.
 
-На VPS удобно дублировать это **systemd** с `Restart=always` — пример: `deploy/tgbot.service.example`.
+На VPS автоперезапуск даёт **systemd** (`deploy/install-systemd.sh` или `deploy/tgbot.service.example`).
 
 ## Модель и лимиты
 
@@ -99,7 +99,29 @@ nano .env   # BOT_TOKEN, DEEPSEEK_API_KEYS, ADMIN_IDS, при необходим
 python main.py
 ```
 
-Остановка: Ctrl+C. Дальше можно оформить автозапуск через **systemd** — шаблон: `deploy/tgbot.service.example` (в unit поправьте `WorkingDirectory` и `ExecStart` на **тот же** путь, где лежит клон, например `~/bots/TGBOTAImbp77`).
+Остановка: Ctrl+C.
+
+### Автозапуск (systemd)
+
+На VPS, из **корня клона** (где лежат `main.py` и `deploy/`), подставьте свой путь и пользователя Linux:
+
+```bash
+cd ~/bots/TGBOTAImbp77
+# второй аргумент — пользователь, от имени которого крутится бот (не root); при sudo обычно это вы:
+sudo bash deploy/install-systemd.sh "$(pwd)" "${SUDO_USER:-$USER}"
+```
+
+Скрипт создаст `/etc/systemd/system/tgbot-imbp77.service`, выполнит `daemon-reload`, **enable** и **restart**, покажет `status`.
+
+Полезные команды:
+
+```bash
+sudo systemctl status tgbot-imbp77   # статус и логи за последний запуск
+sudo journalctl -u tgbot-imbp77 -f   # поток логов
+sudo systemctl restart tgbot-imbp77  # после правок кода / .env
+```
+
+Ручная правка unit-файла: шаблон `deploy/tgbot.service.example`.
 
 ### Уже установлен: обновить код с GitHub
 

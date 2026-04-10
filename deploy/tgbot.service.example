@@ -1,7 +1,9 @@
 # Пример unit для systemd (Linux VPS).
-# Поправьте User, WorkingDirectory и ExecStart под каталог, куда сделали git clone
-# (например /home/ВАШ_ЮЗЕР/bots/TGBOTAImbp77 или /opt/tgbot-imbp77).
-# Затем: sudo systemctl daemon-reload && sudo systemctl enable --now tgbot-imbp77
+# Проще включить автозапуск скриптом из корня репозитория на VPS:
+#   sudo bash deploy/install-systemd.sh /home/ubuntu/bots/TGBOTAImbp77 ubuntu
+# Или скопируйте этот файл в /etc/systemd/system/tgbot-imbp77.service,
+# поправьте User / WorkingDirectory / ExecStart, затем:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now tgbot-imbp77
 
 [Unit]
 Description=TGBOTAImbp77 Telegram bot
