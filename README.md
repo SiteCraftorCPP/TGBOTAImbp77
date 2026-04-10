@@ -59,6 +59,21 @@ Telegram: `TELEGRAM_PROXY_URL` или VPN. DeepSeek: `DEEPSEEK_PROXY_URL` / `HTT
 
 Репозиторий: [github.com/SiteCraftorCPP/TGBOTAImbp77](https://github.com/SiteCraftorCPP/TGBOTAImbp77).
 
+### Обновление на VPS (обычно только это)
+
+Зайти в **каталог этого бота**, подтянуть ветку `main`, при необходимости обновить зависимости, перезапустить сервис:
+
+```bash
+cd ~/bots/TGBOTAImbp77
+git pull origin main
+.venv/bin/pip install -r requirements.txt
+sudo systemctl restart tgbot-imbp77
+```
+
+Если systemd-сервис ещё не ставили — сначала один раз раздел **«Автозапуск (systemd)»** ниже. Без сервиса после `git pull` достаточно перезапустить `python main.py` вручную / в screen.
+
+`.env` и `bot.db` из git не приезжают и не затираются.
+
 ### Первый раз: поставить бота на VPS (проекта ещё нет)
 
 Делается **только в новой папке** — остальные каталоги на сервере не трогаем.
@@ -101,17 +116,25 @@ python main.py
 
 Остановка: Ctrl+C.
 
-### Автозапуск (systemd)
+### Автозапуск (systemd) — делается **один раз**
 
-На VPS, из **корня клона** (где лежат `main.py` и `deploy/`), подставьте свой путь и пользователя Linux:
+Нужны `main.py`, `.venv` и `.env` в каталоге проекта. Второй аргумент — **Linux-пользователь**, под которым будет работать процесс (у него должны быть права на этот каталог).
+
+Вы уже **root**, проект в `/root/bots/TGBOTAImbp77`:
+
+```bash
+cd /root/bots/TGBOTAImbp77
+bash deploy/install-systemd.sh /root/bots/TGBOTAImbp77 root
+```
+
+Обычный пользователь **ubuntu**, проект в `~/bots/TGBOTAImbp77`:
 
 ```bash
 cd ~/bots/TGBOTAImbp77
-# второй аргумент — пользователь, от имени которого крутится бот (не root); при sudo обычно это вы:
-sudo bash deploy/install-systemd.sh "$(pwd)" "${SUDO_USER:-$USER}"
+sudo bash deploy/install-systemd.sh /home/ubuntu/bots/TGBOTAImbp77 ubuntu
 ```
 
-Скрипт создаст `/etc/systemd/system/tgbot-imbp77.service`, выполнит `daemon-reload`, **enable** и **restart**, покажет `status`.
+Скрипт создаст `tgbot-imbp77.service`, сделает `daemon-reload`, **enable** и **restart**, покажет `status`. Дальше обновления — только **`git pull origin main`** (см. выше).
 
 Полезные команды:
 
@@ -122,18 +145,6 @@ sudo systemctl restart tgbot-imbp77  # после правок кода / .env
 ```
 
 Ручная правка unit-файла: шаблон `deploy/tgbot.service.example`.
-
-### Уже установлен: обновить код с GitHub
-
-Только зайти **в каталог этого клона** (тот же `cd`, что в п. 2–3), больше никуда не переходить:
-
-```bash
-cd ~/bots/TGBOTAImbp77
-git pull origin main
-.venv/bin/pip install -r requirements.txt
-```
-
-`.env` и `bot.db` репозиторием не затираются. Затем перезапуск процесса бота (`systemctl restart …`, screen/tmux или снова `python main.py`).
 
 ### Пуш с разработческого ПК
 

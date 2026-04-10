@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Установка и включение systemd-сервиса tgbot-imbp77.
-# Запускать на VPS из любого каталога, с правами root.
+# Установка и включение systemd-сервиса tgbot-imbp77 (один раз).
+# Запускать с правами root: sudo ... или уже из сессии root — без sudo.
 #
+#   bash deploy/install-systemd.sh /root/bots/TGBOTAImbp77 root
 #   sudo bash deploy/install-systemd.sh /home/ubuntu/bots/TGBOTAImbp77 ubuntu
 #
-# Путь — абсолютный к корню репозитория (где main.py и .venv).
-# Пользователь — под кем будет работать процесс (обычно тот же, что клонировал репозиторий).
+# Обновления кода на сервере: cd в проект → git pull origin main → systemctl restart tgbot-imbp77
 
 set -euo pipefail
 
