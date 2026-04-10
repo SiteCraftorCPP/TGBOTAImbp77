@@ -82,4 +82,26 @@ nano .env   # BOT_TOKEN, DEEPSEEK_API_KEYS, ...
 python main.py
 ```
 
-Обновление кода на VPS: `git pull` в каталоге репозитория, затем перезапуск процесса (systemd, screen, tmux и т.д.). Юнит systemd: см. `deploy/tgbot.service.example`.
+### Обновление только этого бота на VPS
+
+Другие проекты на сервере **не трогаем**: все команды только внутри каталога клона (подставьте свой путь).
+
+```bash
+# Один раз задайте каталог клона этого репозитория:
+export BOT_DIR=/полный/путь/к/TGBOTAImbp77
+
+cd "$BOT_DIR" || exit 1
+pwd   # убедитесь, что это именно TGBOTAImbp77
+git pull origin main
+./.venv/bin/pip install -r requirements.txt
+```
+
+Файлы **`.env`** и **`bot.db`** в репозиторий не входят и `git pull` их не перезапишет. Затем перезапустите **только** процесс этого бота (пример для systemd):
+
+```bash
+sudo systemctl restart tgbot-imbp77
+```
+
+Если бот в screen/tmux — зайдите в ту же сессию и перезапустите `python main.py` вручную.
+
+Юнит systemd: `deploy/tgbot.service.example`.
