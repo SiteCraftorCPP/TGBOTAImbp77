@@ -28,18 +28,22 @@ from app.texts import (
     ASK_QUESTION_INLINE_HINT,
     ASSISTANT_UNAVAILABLE_TEXT,
     BUTTON_ASK_QUESTION,
-    BUTTON_SHOW_ALL_HADITHS_SUB,
+    BUTTON_SUB_MONTH,
+    BUTTON_SUB_YEAR,
     EMPTY_QUERY_TEXT,
     INVOICE_PAYLOAD_SUB_MONTH,
+    INVOICE_PAYLOAD_SUB_YEAR,
     NEXT_QUESTION_HINT,
     START_FOOTER_NO_PAYMENT,
     START_TEXT,
-    SUBSCRIPTION_INVOICE_DESCRIPTION,
+    SUBSCRIPTION_INVOICE_DESC_MONTH,
+    SUBSCRIPTION_INVOICE_DESC_YEAR,
     SUBSCRIPTION_INVOICE_TITLE,
     SUBSCRIPTION_OFFER_AFTER_FREE,
     SUBSCRIPTION_PAYMENT_MANUAL_TEXT,
     SUBSCRIPTION_REQUIRED_TEXT,
-    SUBSCRIPTION_THANK_YOU_TEXT,
+    SUBSCRIPTION_THANK_YOU_MONTH,
+    SUBSCRIPTION_THANK_YOU_YEAR,
 )
 
 
@@ -87,7 +91,10 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
 def subscription_cta_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=BUTTON_SHOW_ALL_HADITHS_SUB, callback_data="subscribe")],
+            [
+                InlineKeyboardButton(text=BUTTON_SUB_MONTH, callback_data="sub_month"),
+                InlineKeyboardButton(text=BUTTON_SUB_YEAR, callback_data="sub_year"),
+            ],
             [InlineKeyboardButton(text=BUTTON_ASK_QUESTION, callback_data="ask_question")],
         ]
     )
@@ -209,8 +216,8 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                 "💎 <b>Подписка активна</b>\n\n"
                 f"📅 Начало текущего периода: <b>{_fmt_sub_dt(started)}</b>\n"
                 f"📅 Окончание: <b>{_fmt_sub_dt(until)}</b>\n"
-                f"💰 Тариф: 100 ₽ в месяц\n\n"
-                "На каждый вопрос — 1 аят и 1 хадис; вопросов в период подписки без лимита.",
+                "💰 При продлении: <b>100 ₽ / месяц</b> или <b>500 ₽ / год</b>.\n\n"
+                "Ответы с доводами из Корана и Сунны; вопросов в период подписки — без лимита.",
                 parse_mode=ParseMode.HTML,
             )
         else:
@@ -219,8 +226,11 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             if until is not None and until <= utc_now():
                 extra = f"\n\nПоследнее окончание: {_fmt_sub_dt(until)}"
             await message.answer(
-                "📭 Активной подписки нет. Оформите доступ — кнопка «Показать все хадисы — 100 ₽/мес»."
-                + extra
+                "📭 Активной подписки нет.\n\n"
+                "💳 Оформите доступ: <b>100 ₽ / месяц</b> или <b>500 ₽ / год</b> — кнопки ниже или /start."
+                + extra,
+                reply_markup=subscription_cta_keyboard() if payment_configured else None,
+                parse_mode=ParseMode.HTML,
             )
 
     @dispatcher.message(Command("my_questions"))
@@ -313,32 +323,51 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             await callback.message.answer(ASK_QUESTION_INLINE_HINT)
         await callback.answer()
 
-    @dispatcher.callback_query(F.data == "subscribe")
-    async def subscribe_callback(callback: CallbackQuery) -> None:
+    @dispatcher.callback_query(F.data.in_({"sub_month", "sub_year", "subscribe"}))
+    async def subscribe_pay_callback(callback: CallbackQuery) -> None:
         await callback.answer()
         if not callback.message or not callback.from_user:
             return
         chat_id = callback.message.chat.id
-        if settings.payment_provider_token:
-            await callback.bot.send_invoice(
-                chat_id=chat_id,
-                title=SUBSCRIPTION_INVOICE_TITLE,
-                description=SUBSCRIPTION_INVOICE_DESCRIPTION,
-                payload=INVOICE_PAYLOAD_SUB_MONTH,
-                currency="RUB",
-                prices=[LabeledPrice(label="📚 30 дней", amount=settings.subscription_price_kopecks)],
-                provider_token=settings.payment_provider_token,
-            )
+        if not settings.payment_provider_token:
+            await callback.message.answer(SUBSCRIPTION_PAYMENT_MANUAL_TEXT, parse_mode=ParseMode.HTML)
+            return
+        # «subscribe» — старые клавиатуры; считаем как месяц.
+        is_year = callback.data == "sub_year"
+        if is_year:
+            payload = INVOICE_PAYLOAD_SUB_YEAR
+            amount = settings.subscription_year_price_kopecks
+            description = SUBSCRIPTION_INVOICE_DESC_YEAR
+            price_label = "📆 365 дней"
         else:
-            await callback.message.answer(SUBSCRIPTION_PAYMENT_MANUAL_TEXT)
+            payload = INVOICE_PAYLOAD_SUB_MONTH
+            amount = settings.subscription_price_kopecks
+            description = SUBSCRIPTION_INVOICE_DESC_MONTH
+            price_label = "📅 30 дней"
+        await callback.bot.send_invoice(
+            chat_id=chat_id,
+            title=SUBSCRIPTION_INVOICE_TITLE,
+            description=description,
+            payload=payload,
+            currency="RUB",
+            prices=[LabeledPrice(label=price_label, amount=amount)],
+            provider_token=settings.payment_provider_token,
+        )
 
     @dispatcher.pre_checkout_query()
     async def pre_checkout_handler(pre_checkout_query: PreCheckoutQuery, bot: Bot) -> None:
         q = pre_checkout_query
-        if q.invoice_payload != INVOICE_PAYLOAD_SUB_MONTH or q.currency != "RUB":
+        if q.currency != "RUB":
+            await bot.answer_pre_checkout_query(q.id, ok=False, error_message="Поддерживается только RUB.")
+            return
+        if q.invoice_payload == INVOICE_PAYLOAD_SUB_MONTH:
+            expected = settings.subscription_price_kopecks
+        elif q.invoice_payload == INVOICE_PAYLOAD_SUB_YEAR:
+            expected = settings.subscription_year_price_kopecks
+        else:
             await bot.answer_pre_checkout_query(q.id, ok=False, error_message="Неизвестный счёт.")
             return
-        if q.total_amount != settings.subscription_price_kopecks:
+        if q.total_amount != expected:
             await bot.answer_pre_checkout_query(q.id, ok=False, error_message="Сумма не совпадает.")
             return
         await bot.answer_pre_checkout_query(q.id, ok=True)
@@ -348,7 +377,14 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         if not message.from_user or not message.successful_payment:
             return
         pay = message.successful_payment
-        if pay.invoice_payload != INVOICE_PAYLOAD_SUB_MONTH:
+        payload = str(pay.invoice_payload or "")
+        if payload == INVOICE_PAYLOAD_SUB_MONTH:
+            days = 30
+            thank = SUBSCRIPTION_THANK_YOU_MONTH
+        elif payload == INVOICE_PAYLOAD_SUB_YEAR:
+            days = 365
+            thank = SUBSCRIPTION_THANK_YOU_YEAR
+        else:
             return
         u = message.from_user
         database.upsert_user(
@@ -362,13 +398,13 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             user_id=u.id,
             currency=str(pay.currency or "RUB"),
             total_amount=int(pay.total_amount),
-            invoice_payload=str(pay.invoice_payload),
+            invoice_payload=payload,
             telegram_payment_charge_id=str(pay.telegram_payment_charge_id),
             provider_payment_charge_id=str(prov) if prov else None,
         )
-        database.extend_subscription_days(message.from_user.id, 30)
+        database.extend_subscription_days(message.from_user.id, days)
         await message.answer(
-            SUBSCRIPTION_THANK_YOU_TEXT,
+            thank,
             reply_markup=main_menu_keyboard(),
             parse_mode=ParseMode.HTML,
         )
@@ -493,7 +529,7 @@ async def run() -> None:
         )
     if not settings.payment_provider_token:
         print(
-            "Режим без оплаты: PAYMENT_PROVIDER_TOKEN пуст — лимит вопросов отключён; формат ответа: 1 аят + 1 хадис."
+            "Режим без оплаты: PAYMENT_PROVIDER_TOKEN пуст — лимит вопросов отключён."
         )
     try:
         await dispatcher.start_polling(bot)

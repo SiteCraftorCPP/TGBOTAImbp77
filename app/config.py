@@ -25,6 +25,7 @@ class Settings:
     database_path: Path
     payment_provider_token: str
     subscription_price_kopecks: int
+    subscription_year_price_kopecks: int
 
 
 def _parse_admin_ids(raw_value: str) -> set[int]:
@@ -63,4 +64,5 @@ def load_settings() -> Settings:
         database_path=ROOT_DIR / os.getenv("DATABASE_PATH", "bot.db"),
         payment_provider_token=os.getenv("PAYMENT_PROVIDER_TOKEN", "").strip(),
         subscription_price_kopecks=int(os.getenv("SUBSCRIPTION_PRICE_KOPECKS", "10000")),
+        subscription_year_price_kopecks=int(os.getenv("SUBSCRIPTION_YEAR_PRICE_KOPECKS", "50000")),
     )
