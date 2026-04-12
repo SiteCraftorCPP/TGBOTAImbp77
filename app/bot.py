@@ -66,7 +66,7 @@ def _fmt_sub_dt(dt: datetime | None) -> str:
         dt = dt.replace(tzinfo=UTC)
     return dt.strftime("%d.%m.%Y %H:%M UTC")
 
-DIALOG_MESSAGES_FOR_MODEL = 24
+DIALOG_MESSAGES_FOR_MODEL = 14
 
 _TYPING_REFRESH_SEC = 4.5
 

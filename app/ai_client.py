@@ -8,17 +8,18 @@ import httpx
 
 from app.advisor_prompt import ADVISOR_QURAN_REPLY_PROMPT
 
-_HISTORY_MSG_MAX_CHARS = 2800
-_FINAL_USER_MAX_CHARS = 3500
+# Укороченный контекст — меньше входных токенов и быстрее ответ.
+_HISTORY_MSG_MAX_CHARS = 1800
+_FINAL_USER_MAX_CHARS = 2200
 
-# Ответ короткий; меньший max_tokens ускоряет генерацию и снижает «простыни» от модели.
-_MIN_OUTPUT_TOKENS = 1536
-_MAX_OUTPUT_TOKENS_CAP = 4096
+# Верхняя граница выхода; не раздувать: большой max_tokens замедляет генерацию.
+_MAX_OUTPUT_TOKENS_CAP = 2048
+_OUTPUT_TOKENS_FLOOR = 256
 
 _REPLY_SUFFIX = (
-    "Сейчас ответь по системному промпту: живой учёный, гибкая структура, доводы с оформлением аятов/хадисов "
-    "(арабский, транскрипция, перевод, источник), без выдуманных цитат. Если нельзя надёжно — только дословная "
-    "фраза отказа из правил промпта. Не упоминай оплату в тексте."
+    "Сейчас — кратко: уложись в лимит объёма из промпта. Живой учёный, 1–2 сильных довода (аят/хадис по делу), "
+    "транскрипция только кириллицей по-русски. Без «простыней». Если нельзя надёжно — только дословная фраза "
+    "отказа из промпта. Не упоминай оплату."
 )
 
 
@@ -51,10 +52,8 @@ class DeepSeekClient:
         return min(self._answer_max_tokens, _MAX_OUTPUT_TOKENS_CAP)
 
     def _effective_max_tokens(self) -> int:
-        return min(
-            max(self.answer_max_tokens, _MIN_OUTPUT_TOKENS),
-            _MAX_OUTPUT_TOKENS_CAP,
-        )
+        """Без искусственного завышения минимума — уважаем DEEPSEEK_ANSWER_MAX_TOKENS из .env."""
+        return min(max(self.answer_max_tokens, _OUTPUT_TOKENS_FLOOR), _MAX_OUTPUT_TOKENS_CAP)
 
     async def warm_http(self) -> None:
         """Прогрев TCP/TLS до первого вопроса (ускоряет первый запрос)."""
@@ -105,7 +104,7 @@ class DeepSeekClient:
             "max_tokens": max_tokens,
         }
 
-        req_timeout = httpx.Timeout(timeout, connect=10.0)
+        req_timeout = httpx.Timeout(timeout, connect=8.0)
         try:
             client = await self._ensure_http_client()
             for _ in range(len(self.api_keys)):
@@ -170,7 +169,7 @@ class DeepSeekClient:
         messages = self._build_dialog_messages(system, history, final_user)
         return await self._chat_messages(
             messages,
-            temperature=0.1,
+            temperature=0.15,
             model=self.model,
             max_tokens=max_tokens,
             timeout=self.answer_timeout,

@@ -54,8 +54,8 @@ def load_settings() -> Settings:
         deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").rstrip("/"),
         deepseek_answer_model=os.getenv("DEEPSEEK_ANSWER_MODEL", "").strip()
         or os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip(),
-        deepseek_answer_max_tokens=int(os.getenv("DEEPSEEK_ANSWER_MAX_TOKENS", "2560")),
-        deepseek_answer_timeout=float(os.getenv("DEEPSEEK_ANSWER_TIMEOUT", "90")),
+        deepseek_answer_max_tokens=int(os.getenv("DEEPSEEK_ANSWER_MAX_TOKENS", "1400")),
+        deepseek_answer_timeout=float(os.getenv("DEEPSEEK_ANSWER_TIMEOUT", "75")),
         deepseek_proxy_url=os.getenv("DEEPSEEK_PROXY_URL", os.getenv("HTTP_PROXY_URL", "")).strip(),
         telegram_proxy_url=(
             os.getenv("TELEGRAM_PROXY_URL", "").strip()

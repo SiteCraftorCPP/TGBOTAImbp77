@@ -49,7 +49,7 @@ python scripts/test_deepseek_keys.py --no-llm
 
 ## Модель и лимиты
 
-См. [DeepSeek API](https://api-docs.deepseek.com). `DEEPSEEK_ANSWER_MAX_TOKENS` по умолчанию **2560** (см. `app/config.py`); верхняя граница в клиенте — `app/ai_client.py`.
+См. [DeepSeek API](https://api-docs.deepseek.com). `DEEPSEEK_ANSWER_MAX_TOKENS` по умолчанию **1400** (см. `app/config.py`); верхняя граница в клиенте — `app/ai_client.py`. Меньше значение — обычно быстрее и короче ответ. Модель `deepseek-reasoner` заметно медленнее `deepseek-chat`.
 
 ## Сеть
 
