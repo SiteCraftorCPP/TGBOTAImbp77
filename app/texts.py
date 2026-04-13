@@ -82,9 +82,10 @@ SUBSCRIPTION_PAYMENT_MANUAL_TEXT = (
     "Когда подключите — тарифы: <b>100 ₽ / месяц</b> и <b>600 ₽ / год</b>."
 )
 
-# Дополнение к /start, когда PAYMENT_PROVIDER_TOKEN не задан — лимиты отключены.
+# Дополнение к /start, когда PAYMENT_PROVIDER_TOKEN не задан — тестовый режим.
 START_FOOTER_NO_PAYMENT = (
-    "\n\nℹ️ <b>Оплата в Telegram пока не подключена</b> — вопросов <b>без лимита</b>."
+    "\n\nℹ️ <b>Тестовый режим</b>: оплата в Telegram не подключена — доступен <b>один</b> бесплатный ответ ИИ, "
+    "затем показываются кнопки «оплаты» (счёт откроется после настройки <code>PAYMENT_PROVIDER_TOKEN</code>)."
 )
 
 SUBSCRIPTION_THANK_YOU_MONTH = (

@@ -70,6 +70,20 @@ DIALOG_MESSAGES_FOR_MODEL = 14
 _TYPING_REFRESH_SEC = 4.5
 
 
+def _normalize_for_refusal_compare(text: str) -> str:
+    """Схлопываем пробелы и варианты апострофа — модель может выдать другой символ в «а'лям»."""
+    t = text.strip()
+    for ch in ("\u2019", "\u2018", "\u0060", "\u02bc", "\u02b9"):
+        t = t.replace(ch, "'")
+    return " ".join(t.split())
+
+
+def _is_refusal_reply(body: str) -> bool:
+    return _normalize_for_refusal_compare(body) == _normalize_for_refusal_compare(
+        NO_RELIABLE_VERSE_HADITH_REPLY
+    )
+
+
 async def _typing_keepalive(bot: Bot, chat_id: int) -> None:
     try:
         while True:
@@ -217,11 +231,18 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             extra = ""
             if until is not None and until <= utc_now():
                 extra = f"\n\nПоследнее окончание: {_fmt_sub_dt(until)}"
-            await message.answer(
+            sub_body = (
                 "📭 Активной подписки нет.\n\n"
                 "💳 Оформите доступ: <b>100 ₽ / месяц</b> или <b>600 ₽ / год</b> — кнопки ниже или /start."
-                + extra,
-                reply_markup=subscription_cta_keyboard() if payment_configured else None,
+                + extra
+            )
+            if not payment_configured:
+                sub_body += (
+                    "\n\n<i>Тестовый режим: PAYMENT_PROVIDER_TOKEN не задан — кнопки для проверки UI.</i>"
+                )
+            await message.answer(
+                sub_body,
+                reply_markup=subscription_cta_keyboard(),
                 parse_mode=ParseMode.HTML,
             )
 
@@ -421,9 +442,15 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         subscribed = database.has_active_subscription(user_id)
         free_ok = not database.get_free_bundle_used(user_id)
 
-        if payment_configured and not subscribed and not free_ok:
+        if not subscribed and not free_ok:
+            body = SUBSCRIPTION_REQUIRED_TEXT
+            if not payment_configured:
+                body += (
+                    "\n\n<i>Тестовый режим: PAYMENT_PROVIDER_TOKEN не задан — по кнопке откроется "
+                    "подсказка; позже добавьте токен провайдера для реальной оплаты.</i>"
+                )
             await message.answer(
-                SUBSCRIPTION_REQUIRED_TEXT,
+                body,
                 reply_markup=subscription_cta_keyboard(),
                 parse_mode=ParseMode.HTML,
             )
@@ -455,8 +482,10 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         await reply_long_text(message, reply_body)
         database.append_chat_message(user_id, "assistant", reply_body)
 
-        if payment_configured and not subscribed and free_ok:
-            if reply_body != NO_RELIABLE_VERSE_HADITH_REPLY:
+        # Кнопки оплаты после пробного — всегда, если нет подписки и бесплатный ответ ещё не «списан».
+        # Раньше тут требовался PAYMENT_PROVIDER_TOKEN из‑за этого без токена кнопок не было вообще.
+        if not subscribed and free_ok:
+            if not _is_refusal_reply(reply_body):
                 database.set_free_bundle_used(user_id, True)
                 await message.answer(
                     SUBSCRIPTION_OFFER_AFTER_FREE,
@@ -521,7 +550,8 @@ async def run() -> None:
         )
     if not settings.payment_provider_token:
         print(
-            "Режим без оплаты: PAYMENT_PROVIDER_TOKEN пуст — лимит вопросов отключён."
+            "Тестовый режим: PAYMENT_PROVIDER_TOKEN пуст — один бесплатный ответ ИИ, "
+            "затем только кнопки «оплаты» (счёт не откроется, пока не добавите токен)."
         )
     try:
         await dispatcher.start_polling(bot)
