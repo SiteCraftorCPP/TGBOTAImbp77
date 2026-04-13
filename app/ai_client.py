@@ -17,8 +17,9 @@ _MAX_OUTPUT_TOKENS_CAP = 2048
 _OUTPUT_TOKENS_FLOOR = 256
 
 _REPLY_SUFFIX = (
-    "Лимит объёма и кириллическая транскрипция — как в системном промпте. 1–2 сильных довода по делу. "
-    "Без простыней. Если нельзя надёжно — только дословный отказ из промпта. Без оплаты."
+    "Сейчас — кратко: уложись в лимит объёма из промпта. Живой учёный, 1–2 сильных довода (аят/хадис по делу), "
+    "транскрипция только кириллицей по-русски. Без «простыней». Если нельзя надёжно — только дословная фраза "
+    "отказа из промпта. Не упоминай оплату."
 )
 
 
@@ -59,26 +60,13 @@ class DeepSeekClient:
         if self.api_keys:
             await self._ensure_http_client()
 
-    def _want_http2(self) -> bool:
-        # HTTP/2 к API ускоряет мультиплексирование; с прокси часто только HTTP/1.1 — не форсируем h2.
-        if self.proxy_url:
-            return False
-        try:
-            import h2  # noqa: F401
-        except ImportError:
-            return False
-        return True
-
     async def _ensure_http_client(self) -> httpx.AsyncClient:
         if self._http_client is not None:
             return self._http_client
         async with self._http_lock:
             if self._http_client is not None:
                 return self._http_client
-            kwargs: dict = {
-                "limits": httpx.Limits(max_keepalive_connections=16, max_connections=32),
-                "http2": self._want_http2(),
-            }
+            kwargs: dict = {"limits": httpx.Limits(max_keepalive_connections=5, max_connections=10)}
             if self.proxy_url:
                 kwargs["proxy"] = self.proxy_url
             self._http_client = httpx.AsyncClient(**kwargs)
@@ -109,15 +97,14 @@ class DeepSeekClient:
             return None
 
         use_model = (model or "").strip() or self.model
-        payload: dict = {
+        payload = {
             "model": use_model,
             "temperature": temperature,
-            "top_p": 0.95,
             "messages": messages,
             "max_tokens": max_tokens,
         }
 
-        req_timeout = httpx.Timeout(timeout, connect=6.0, pool=5.0)
+        req_timeout = httpx.Timeout(timeout, connect=8.0)
         try:
             client = await self._ensure_http_client()
             for _ in range(len(self.api_keys)):
@@ -174,13 +161,15 @@ class DeepSeekClient:
 
         memory_hint = ""
         if history:
-            memory_hint = "История ниже по времени (старые→новые); учти нить темы.\n\n"
+            memory_hint = (
+                "Контекст: в истории чата сообщения по времени (сначала старые). Учитывай нить темы и смысл вопроса.\n\n"
+            )
 
         final_user = f"{memory_hint}{final_suffix}\n\nТекущее сообщение пользователя:\n{last_content}"
         messages = self._build_dialog_messages(system, history, final_user)
         return await self._chat_messages(
             messages,
-            temperature=0.1,
+            temperature=0.15,
             model=self.model,
             max_tokens=max_tokens,
             timeout=self.answer_timeout,
