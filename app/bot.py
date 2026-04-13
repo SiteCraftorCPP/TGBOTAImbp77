@@ -28,8 +28,6 @@ from app.texts import (
     ASK_QUESTION_INLINE_HINT,
     ASSISTANT_UNAVAILABLE_TEXT,
     BUTTON_ASK_QUESTION,
-    BUTTON_SUB_MONTH,
-    BUTTON_SUB_YEAR,
     EMPTY_QUERY_TEXT,
     INVOICE_PAYLOAD_SUB_MONTH,
     INVOICE_PAYLOAD_SUB_YEAR,
@@ -44,6 +42,7 @@ from app.texts import (
     SUBSCRIPTION_REQUIRED_TEXT,
     SUBSCRIPTION_THANK_YOU_MONTH,
     SUBSCRIPTION_THANK_YOU_YEAR,
+    subscription_pay_tariffs_keyboard,
 )
 
 
@@ -89,15 +88,8 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 def subscription_cta_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text=BUTTON_SUB_MONTH, callback_data="sub_month"),
-                InlineKeyboardButton(text=BUTTON_SUB_YEAR, callback_data="sub_year"),
-            ],
-            [InlineKeyboardButton(text=BUTTON_ASK_QUESTION, callback_data="ask_question")],
-        ]
-    )
+    """Только две кнопки оплаты по тарифам (месяц / год)."""
+    return subscription_pay_tariffs_keyboard()
 
 
 async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
@@ -216,7 +208,7 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                 "💎 <b>Подписка активна</b>\n\n"
                 f"📅 Начало текущего периода: <b>{_fmt_sub_dt(started)}</b>\n"
                 f"📅 Окончание: <b>{_fmt_sub_dt(until)}</b>\n"
-                "💰 При продлении: <b>100 ₽ / месяц</b> или <b>500 ₽ / год</b>.\n\n"
+                "💰 При продлении: <b>100 ₽ / месяц</b> или <b>600 ₽ / год</b>.\n\n"
                 "Ответы с доводами из Корана и Сунны; вопросов в период подписки — без лимита.",
                 parse_mode=ParseMode.HTML,
             )
@@ -227,7 +219,7 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                 extra = f"\n\nПоследнее окончание: {_fmt_sub_dt(until)}"
             await message.answer(
                 "📭 Активной подписки нет.\n\n"
-                "💳 Оформите доступ: <b>100 ₽ / месяц</b> или <b>500 ₽ / год</b> — кнопки ниже или /start."
+                "💳 Оформите доступ: <b>100 ₽ / месяц</b> или <b>600 ₽ / год</b> — кнопки ниже или /start."
                 + extra,
                 reply_markup=subscription_cta_keyboard() if payment_configured else None,
                 parse_mode=ParseMode.HTML,

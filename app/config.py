@@ -64,5 +64,5 @@ def load_settings() -> Settings:
         database_path=ROOT_DIR / os.getenv("DATABASE_PATH", "bot.db"),
         payment_provider_token=os.getenv("PAYMENT_PROVIDER_TOKEN", "").strip(),
         subscription_price_kopecks=int(os.getenv("SUBSCRIPTION_PRICE_KOPECKS", "10000")),
-        subscription_year_price_kopecks=int(os.getenv("SUBSCRIPTION_YEAR_PRICE_KOPECKS", "50000")),
+        subscription_year_price_kopecks=int(os.getenv("SUBSCRIPTION_YEAR_PRICE_KOPECKS", "60000")),
     )

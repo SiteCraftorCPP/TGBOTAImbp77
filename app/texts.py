@@ -4,21 +4,25 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 # Кнопки (лимит Telegram ~64 символа)
 BUTTON_ASK_QUESTION = "💬 Задать вопрос"
-BUTTON_SUB_MONTH = "📅 Месяц — 100 ₽"
-BUTTON_SUB_YEAR = "📆 Год — 500 ₽"
+BUTTON_SUB_MONTH = "💳 100 ₽ — месяц"
+BUTTON_SUB_YEAR = "💳 600 ₽ — год"
 
 
-def subscription_renewal_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура: продление подписки (месяц / год) + вопрос."""
+def subscription_pay_tariffs_keyboard() -> InlineKeyboardMarkup:
+    """Две инлайн-кнопки оплаты: месяц и год (после пробного, при блокировке, в уведомлениях)."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(text=BUTTON_SUB_MONTH, callback_data="sub_month"),
                 InlineKeyboardButton(text=BUTTON_SUB_YEAR, callback_data="sub_year"),
             ],
-            [InlineKeyboardButton(text=BUTTON_ASK_QUESTION, callback_data="ask_question")],
         ]
     )
+
+
+def subscription_renewal_keyboard() -> InlineKeyboardMarkup:
+    """Продление — те же два тарифа."""
+    return subscription_pay_tariffs_keyboard()
 
 
 START_TEXT = (
@@ -36,7 +40,7 @@ START_TEXT = (
     "───────────────\n"
     "💎 <b>Подписка</b>\n"
     " • <b>1 месяц</b> — <b>100 ₽</b>\n"
-    " • <b>1 год</b> — <b>500 ₽</b>\n"
+    " • <b>1 год</b> — <b>600 ₽</b>\n"
     "───────────────\n\n"
     "✨ <b>Как это работает</b>\n"
     " • 🎁 без подписки — <b>один</b> бесплатный ответ на ваш вопрос;\n"
@@ -64,17 +68,18 @@ NEXT_QUESTION_HINT = "💬 Задайте следующий вопрос:"
 
 SUBSCRIPTION_OFFER_AFTER_FREE = (
     "✅ Вы получили бесплатный ответ по вопросу.\n\n"
-    "💳 Оформите подписку кнопками ниже: <b>100 ₽</b> за месяц или <b>500 ₽</b> за год — безлимит вопросов на срок подписки."
+    "💳 Оформите подписку — <b>две кнопки оплаты</b> ниже: <b>100 ₽</b> за месяц или <b>600 ₽</b> за год. "
+    "После оплаты вопросов в период подписки — без лимита."
 )
 
 SUBSCRIPTION_REQUIRED_TEXT = (
     "🔒 Бесплатный ответ уже был — дальше нужна подписка.\n\n"
-    "💳 Выберите тариф кнопками ниже: <b>месяц — 100 ₽</b> или <b>год — 500 ₽</b>."
+    "💳 Оплатите одним из тарифов кнопками ниже: <b>100 ₽ / месяц</b> или <b>600 ₽ / год</b>."
 )
 
 SUBSCRIPTION_PAYMENT_MANUAL_TEXT = (
     "💳 Оплата через Telegram пока не подключена.\n\n"
-    "Когда подключите — будут доступны тарифы: <b>100 ₽ / месяц</b> и <b>500 ₽ / год</b>."
+    "Когда подключите — тарифы: <b>100 ₽ / месяц</b> и <b>600 ₽ / год</b>."
 )
 
 # Дополнение к /start, когда PAYMENT_PROVIDER_TOKEN не задан — лимиты отключены.
@@ -91,7 +96,7 @@ SUBSCRIPTION_THANK_YOU_MONTH = (
 )
 
 SUBSCRIPTION_THANK_YOU_YEAR = (
-    "🎉 Подписка активна на <b>365 дней</b> (тариф <b>500 ₽ / год</b>)!\n\n"
+    "🎉 Подписка активна на <b>365 дней</b> (тариф <b>600 ₽ / год</b>)!\n\n"
     "💎 Ответы в стиле учёного с доводами из Корана и Сунны.\n"
     "♾️ Вопросов в период подписки — без лимита.\n"
     "📜 История вопросов: <code>/my_questions</code>\n\n"
@@ -100,7 +105,7 @@ SUBSCRIPTION_THANK_YOU_YEAR = (
 
 SUBSCRIPTION_EXPIRED_NOTICE = (
     "🔔 <b>Подписка завершилась</b> (окончание: {end}).\n\n"
-    "💎 Продлите: <b>100 ₽ / месяц</b> или <b>500 ₽ / год</b> — кнопки ниже 👇"
+    "💎 Продлите: <b>100 ₽ / месяц</b> или <b>600 ₽ / год</b> — кнопки ниже 👇"
 )
 
 SUBSCRIPTION_EXPIRING_SOON_NOTICE = (
@@ -117,4 +122,4 @@ SUBSCRIPTION_INVOICE_DESC_YEAR = (
 )
 
 INVOICE_PAYLOAD_SUB_MONTH = "sub_month_100rub_v1"
-INVOICE_PAYLOAD_SUB_YEAR = "sub_year_500rub_v1"
+INVOICE_PAYLOAD_SUB_YEAR = "sub_year_600rub_v1"
