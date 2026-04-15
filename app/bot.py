@@ -481,9 +481,8 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             except Exception:
                 vat_code = 1
             tax_code = int(getattr(settings, "yookassa_tax_system_code", 0) or 0)
-            # В sendInvoice сумма в копейках, а в provider_data — в рублях.
-            # ЮKassa в примерах показывает value числом; даём число с 2 знаками.
-            value_rub = round(amount / 100.0, 2)
+            # В sendInvoice сумма в копейках, а в provider_data (ЮKassa API) — в рублях строкой "100.00".
+            value_rub = f"{amount / 100:.2f}"
             provider_data = json.dumps(
                 {
                     "receipt": {
@@ -491,11 +490,11 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                         "items": [
                             {
                                 "description": "Подписка Quran Sunnah AI",
-                                "quantity": 1,
+                                "quantity": "1.00",
                                 "amount": {"value": value_rub, "currency": "RUB"},
                                 "vat_code": vat_code,
                                 "payment_mode": "full_payment",
-                                "payment_subject": "commodity",
+                                "payment_subject": "service",
                             }
                         ],
                     }
@@ -507,6 +506,9 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             f"Invoice: user={callback.from_user.id} payload={payload} amount={amount} RUB "
             f"provider_data={'yes' if provider_data else 'no'}"
         )
+        if provider_data:
+            # Чтобы понять, что именно уходит в Telegram → ЮKassa.
+            print(f"provider_data={provider_data[:900]}")
 
         await callback.bot.send_invoice(
             chat_id=chat_id,
