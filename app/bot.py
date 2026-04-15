@@ -170,12 +170,25 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             ),
         )
 
-    async def _send_admin_payments(msg: Message, limit: int = 25) -> None:
-        rows = database.list_recent_payments(limit=limit)
+    def _admin_payments_pager_keyboard(*, offset: int, limit: int, total: int) -> InlineKeyboardMarkup | None:
+        prev_offset = max(0, offset - limit)
+        next_offset = offset + limit
+        buttons: list[InlineKeyboardButton] = []
+        if offset > 0:
+            buttons.append(InlineKeyboardButton(text="◀️", callback_data=f"admin_payments_page:{prev_offset}:{limit}"))
+        if next_offset < total:
+            buttons.append(InlineKeyboardButton(text="▶️", callback_data=f"admin_payments_page:{next_offset}:{limit}"))
+        if not buttons:
+            return None
+        return InlineKeyboardMarkup(inline_keyboard=[buttons])
+
+    async def _send_admin_payments(msg: Message, limit: int = 15, offset: int = 0) -> None:
+        total = database.count_payments()
+        rows = database.list_payments_page(limit=limit, offset=offset)
         if not rows:
             await msg.answer("💳 Записей об оплатах пока нет.")
             return
-        lines = [f"💳 Последние оплаты (до {limit}):", ""]
+        lines = ["💳 Последние оплаты", ""]
         for row in rows:
             uid = int(row["user_id"])
             un = row["username"] or "—"
@@ -186,13 +199,9 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             else:
                 price_shown = f"{amt} {cur} (minor units)"
             paid = str(row["paid_at"])[:19].replace("T", " ")
-            until = database.get_subscription_until(uid)
-            until_str = _fmt_sub_dt(until)
-            lines.append(
-                f"#{row['id']} | {paid} UTC | user {uid} @{un} | {price_shown}\n"
-                f"   подписка до: {until_str}"
-            )
-        await reply_admin_plain(msg, "\n".join(lines))
+            lines.append(f"#{row['id']} user id: {uid} @{un} | {price_shown} | {paid} UTC")
+        kb = _admin_payments_pager_keyboard(offset=offset, limit=limit, total=total)
+        await msg.answer("\n".join(lines), reply_markup=kb)
 
     async def _send_admin_subscriptions(msg: Message, limit: int = 50) -> None:
         rows = database.list_active_subscription_rows(limit=limit)
@@ -237,30 +246,7 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         if not message.from_user or not _is_admin(message.from_user.id):
             return
         n = _parse_command_limit(message.text, 15, 100)
-        rows = database.list_recent_payments(limit=n)
-        if not rows:
-            await message.answer("💳 Записей об оплатах пока нет.")
-            return
-        lines = [f"💳 Последние оплаты (до {n}):", ""]
-        for row in rows:
-            uid = int(row["user_id"])
-            un = row["username"] or "—"
-            amt = int(row["total_amount"])
-            cur = str(row["currency"])
-            if cur == "RUB":
-                price_shown = f"{amt / 100:.2f} ₽"
-            else:
-                price_shown = f"{amt} {cur} (minor units)"
-            paid = str(row["paid_at"])[:19].replace("T", " ")
-            tg_ch = str(row["telegram_payment_charge_id"])
-            if len(tg_ch) > 36:
-                tg_ch = tg_ch[:36] + "…"
-            lines.append(
-                f"#{row['id']} user {uid} @{un} | {price_shown} | {paid} UTC\n"
-                f"   payload: {row['invoice_payload']}\n"
-                f"   tg_charge: {tg_ch}"
-            )
-        await reply_admin_plain(message, "\n".join(lines))
+        await _send_admin_payments(message, limit=n, offset=0)
 
     @dispatcher.message(Command("admin_subscriptions"))
     async def admin_subscriptions_handler(message: Message) -> None:
@@ -440,7 +426,23 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         if not callback.from_user or not _is_admin(callback.from_user.id):
             return
         if callback.message:
-            await _send_admin_payments(callback.message, limit=25)
+            await _send_admin_payments(callback.message, limit=15, offset=0)
+
+    @dispatcher.callback_query(F.data.startswith("admin_payments_page:"))
+    async def admin_payments_page(callback: CallbackQuery) -> None:
+        await callback.answer()
+        if not callback.from_user or not _is_admin(callback.from_user.id):
+            return
+        if not callback.message:
+            return
+        try:
+            _, off_s, lim_s = str(callback.data).split(":", 2)
+            offset = int(off_s)
+            limit = int(lim_s)
+        except Exception:
+            offset = 0
+            limit = 15
+        await _send_admin_payments(callback.message, limit=limit, offset=offset)
 
     @dispatcher.callback_query(F.data == "admin_subs_inline")
     async def admin_subs_inline(callback: CallbackQuery) -> None:

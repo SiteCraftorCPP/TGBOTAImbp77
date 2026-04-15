@@ -425,6 +425,28 @@ class Database:
                 (limit,),
             ).fetchall()
 
+    def count_payments(self) -> int:
+        with closing(self._connect()) as connection:
+            try:
+                return int(connection.execute("SELECT COUNT(*) AS c FROM payments").fetchone()["c"])
+            except sqlite3.OperationalError:
+                return 0
+
+    def list_payments_page(self, limit: int = 20, offset: int = 0) -> list[sqlite3.Row]:
+        limit = max(1, min(100, int(limit)))
+        offset = max(0, int(offset))
+        with closing(self._connect()) as connection:
+            return connection.execute(
+                """
+                SELECT p.id, p.user_id, u.username, p.currency, p.total_amount, p.paid_at
+                FROM payments p
+                LEFT JOIN users u ON u.user_id = p.user_id
+                ORDER BY p.id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            ).fetchall()
+
     def list_active_subscription_rows(self, limit: int = 40) -> list[sqlite3.Row]:
         """Пользователи с непустым subscription_until; активность отфильтровать по времени в коде."""
         limit = max(1, min(150, int(limit)))
