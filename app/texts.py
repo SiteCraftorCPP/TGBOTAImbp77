@@ -4,6 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 # Кнопки (лимит Telegram ~64 символа)
 BUTTON_ASK_QUESTION = "💬 Задать вопрос"
+BUTTON_ADMIN_PANEL = "🛠 Админ-панель"
 BUTTON_SUB_MONTH = "💳 100 ₽ — месяц"
 BUTTON_SUB_YEAR = "💳 600 ₽ — год"
 
