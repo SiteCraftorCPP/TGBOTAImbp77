@@ -26,6 +26,8 @@ class Settings:
     payment_provider_token: str
     subscription_price_kopecks: int
     subscription_year_price_kopecks: int
+    yookassa_tax_system_code: int
+    yookassa_vat_code: int
 
 
 def _parse_admin_ids(raw_value: str) -> set[int]:
@@ -71,4 +73,6 @@ def load_settings() -> Settings:
         payment_provider_token=os.getenv("PAYMENT_PROVIDER_TOKEN", "").strip(),
         subscription_price_kopecks=int(os.getenv("SUBSCRIPTION_PRICE_KOPECKS", "10000")),
         subscription_year_price_kopecks=int(os.getenv("SUBSCRIPTION_YEAR_PRICE_KOPECKS", "60000")),
+        yookassa_tax_system_code=int(os.getenv("YOOKASSA_TAX_SYSTEM_CODE", "0") or "0"),
+        yookassa_vat_code=int(os.getenv("YOOKASSA_VAT_CODE", "1") or "1"),
     )

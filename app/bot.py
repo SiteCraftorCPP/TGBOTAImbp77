@@ -17,6 +17,7 @@ from aiogram.types import (
     Message,
     PreCheckoutQuery,
 )
+import json
 
 from app.advisor_prompt import NO_RELIABLE_VERSE_HADITH_REPLY
 from app.ai_client import DeepSeekClient
@@ -470,6 +471,37 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             amount = settings.subscription_price_kopecks
             description = SUBSCRIPTION_INVOICE_DESC_MONTH
             price_label = "📅 30 дней"
+        # provider_data для ЮKassa: чек (54‑ФЗ). Если в .env YOOKASSA_TAX_SYSTEM_CODE=0, не отправляем.
+        provider_data: str | None = None
+        if getattr(settings, "yookassa_tax_system_code", 0):
+            try:
+                vat_code = int(getattr(settings, "yookassa_vat_code", 1) or 1)
+            except Exception:
+                vat_code = 1
+            tax_code = int(getattr(settings, "yookassa_tax_system_code", 0) or 0)
+            value_rub = f"{amount / 100:.2f}"
+            provider_data = json.dumps(
+                {
+                    "receipt": {
+                        "tax_system_code": tax_code,
+                        "items": [
+                            {
+                                "description": "Подписка Quran Sunnah AI",
+                                "quantity": "1.00",
+                                "amount": {"value": value_rub, "currency": "RUB"},
+                                "vat_code": vat_code,
+                            }
+                        ],
+                    }
+                },
+                ensure_ascii=False,
+            )
+
+        print(
+            f"Invoice: user={callback.from_user.id} payload={payload} amount={amount} RUB "
+            f"provider_data={'yes' if provider_data else 'no'}"
+        )
+
         await callback.bot.send_invoice(
             chat_id=chat_id,
             title=SUBSCRIPTION_INVOICE_TITLE,
@@ -481,11 +513,16 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             # Для ЮKassa часто нужен email/телефон для чека. Запрашиваем email и передаём провайдеру.
             need_email=True,
             send_email_to_provider=True,
+            provider_data=provider_data,
         )
 
     @dispatcher.pre_checkout_query()
     async def pre_checkout_handler(pre_checkout_query: PreCheckoutQuery, bot: Bot) -> None:
         q = pre_checkout_query
+        print(
+            f"PreCheckout: from={getattr(q, 'from_user', None) and q.from_user.id} "
+            f"payload={q.invoice_payload} total={q.total_amount} {q.currency}"
+        )
         if q.currency != "RUB":
             await bot.answer_pre_checkout_query(q.id, ok=False, error_message="Поддерживается только RUB.")
             return
@@ -506,6 +543,12 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         if not message.from_user or not message.successful_payment:
             return
         pay = message.successful_payment
+        print(
+            f"SuccessfulPayment: user={message.from_user.id} payload={pay.invoice_payload} "
+            f"total={pay.total_amount} {pay.currency} "
+            f"tg_charge={pay.telegram_payment_charge_id} "
+            f"prov_charge={getattr(pay, 'provider_payment_charge_id', None)}"
+        )
         payload = str(pay.invoice_payload or "")
         if payload == INVOICE_PAYLOAD_SUB_MONTH:
             days = 30
