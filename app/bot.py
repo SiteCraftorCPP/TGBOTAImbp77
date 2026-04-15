@@ -329,6 +329,22 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             lines.append(f"{i}. {short}")
         await message.answer("\n".join(lines))
 
+    @dispatcher.message(Command("id"))
+    async def id_handler(message: Message) -> None:
+        await ensure_user(message)
+        if not message.from_user:
+            return
+        uid = message.from_user.id
+        await message.answer(
+            "\n".join(
+                [
+                    f"🆔 Ваш Telegram user id: <code>{uid}</code>",
+                    f"🔐 Админ: {'да' if _is_admin(uid) else 'нет'}",
+                ]
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+
     @dispatcher.message(Command("start"))
     async def start_handler(message: Message) -> None:
         await ensure_user(message)
