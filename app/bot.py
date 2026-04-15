@@ -481,8 +481,12 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             except Exception:
                 vat_code = 1
             tax_code = int(getattr(settings, "yookassa_tax_system_code", 0) or 0)
-            # В sendInvoice сумма в копейках, а в provider_data (ЮKassa API) — в рублях строкой "100.00".
-            value_rub = f"{amount / 100:.2f}"
+            # Делаем provider_data строго по примеру ЮKassa для Telegram: value/quantity числами.
+            value_rub: float | int
+            if amount % 100 == 0:
+                value_rub = int(amount / 100)
+            else:
+                value_rub = round(amount / 100.0, 2)
             provider_data = json.dumps(
                 {
                     "receipt": {
@@ -490,7 +494,7 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                         "items": [
                             {
                                 "description": "Подписка Quran Sunnah AI",
-                                "quantity": "1.00",
+                                "quantity": 1,
                                 "amount": {"value": value_rub, "currency": "RUB"},
                                 "vat_code": vat_code,
                                 "payment_mode": "full_payment",
