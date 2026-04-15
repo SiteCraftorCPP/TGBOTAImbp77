@@ -47,9 +47,15 @@ def load_settings() -> Settings:
     if not bot_token:
         raise RuntimeError("BOT_TOKEN is not set in .env")
 
+    # Иногда в .env случайно пишут AADMIN_IDS (лишняя 'A'). Поддержим как fallback,
+    # чтобы админка не «пропадала» из-за опечатки.
+    raw_admin_ids = os.getenv("ADMIN_IDS", "").strip()
+    if not raw_admin_ids:
+        raw_admin_ids = os.getenv("AADMIN_IDS", "").strip()
+
     return Settings(
         bot_token=bot_token,
-        admin_ids=_parse_admin_ids(os.getenv("ADMIN_IDS", "")),
+        admin_ids=_parse_admin_ids(raw_admin_ids),
         deepseek_api_keys=_parse_api_keys(os.getenv("DEEPSEEK_API_KEYS", "")),
         deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").rstrip("/"),
         deepseek_answer_model=os.getenv("DEEPSEEK_ANSWER_MODEL", "").strip()
