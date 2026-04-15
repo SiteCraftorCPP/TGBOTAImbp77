@@ -232,10 +232,10 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                 [
                     "🔧 Админ-панель",
                     "",
-                    "/admin_payments [N] — последние оплаты Telegram (N по умолч. 15, макс. 100)",
-                    "/admin_subscriptions [N] — активные подписки (N по умолч. 30, макс. 150)",
-                    "/admin_stats — счётчики",
-                    "/grant_sub <user_id> <дней> — выдать/продлить подписку",
+                    "/admin_payments [N] — последние оплаты (по умолч. 15, макс. 100)",
+                    "/admin_subscriptions [N] — активные подписки (по умолч. 30, макс. 150)",
+                    "/admin_stats — общая статистика",
+                    "/grant_sub <user_id> <дней> — выдать/продлить подписку пользователю",
                 ]
             ),
         )
