@@ -521,6 +521,9 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             # Для ЮKassa часто нужен email/телефон для чека. Запрашиваем email и передаём провайдеру.
             need_email=True,
             send_email_to_provider=True,
+            # Дополнительно запросим телефон — некоторые настройки фискализации/антифрода требуют контакт.
+            need_phone_number=True,
+            send_phone_number_to_provider=True,
             provider_data=provider_data,
         )
 
