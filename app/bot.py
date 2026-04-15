@@ -487,9 +487,11 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                         "items": [
                             {
                                 "description": "Подписка Quran Sunnah AI",
-                                "quantity": "1.00",
+                                "quantity": 1,
                                 "amount": {"value": value_rub, "currency": "RUB"},
                                 "vat_code": vat_code,
+                                "payment_mode": "full_payment",
+                                "payment_subject": "commodity",
                             }
                         ],
                     }
