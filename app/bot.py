@@ -478,6 +478,9 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             currency="RUB",
             prices=[LabeledPrice(label=price_label, amount=amount)],
             provider_token=settings.payment_provider_token,
+            # Для ЮKassa часто нужен email/телефон для чека. Запрашиваем email и передаём провайдеру.
+            need_email=True,
+            send_email_to_provider=True,
         )
 
     @dispatcher.pre_checkout_query()
