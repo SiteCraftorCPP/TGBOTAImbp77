@@ -494,7 +494,7 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                                 "amount": {"value": value_rub, "currency": "RUB"},
                                 "vat_code": vat_code,
                                 "payment_mode": "full_payment",
-                                "payment_subject": "service",
+                                "payment_subject": "commodity",
                             }
                         ],
                     }
