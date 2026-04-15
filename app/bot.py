@@ -28,6 +28,7 @@ from app.texts import (
     ASK_QUESTION_INLINE_HINT,
     ASSISTANT_UNAVAILABLE_TEXT,
     BUTTON_ASK_QUESTION,
+    BUTTON_ADMIN_PANEL,
     EMPTY_QUERY_TEXT,
     INVOICE_PAYLOAD_SUB_MONTH,
     INVOICE_PAYLOAD_SUB_YEAR,
@@ -93,11 +94,16 @@ async def _typing_keepalive(bot: Bot, chat_id: int) -> None:
 
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=BUTTON_ASK_QUESTION, callback_data="ask_question")],
-        ]
-    )
+    return user_menu_keyboard(is_admin=False)
+
+
+def user_menu_keyboard(*, is_admin: bool) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [InlineKeyboardButton(text=BUTTON_ASK_QUESTION, callback_data="ask_question")],
+    ]
+    if is_admin:
+        rows.append([InlineKeyboardButton(text=BUTTON_ADMIN_PANEL, callback_data="admin_panel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def subscription_cta_keyboard() -> InlineKeyboardMarkup:
@@ -134,6 +140,76 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
 
     def _is_admin(uid: int | None) -> bool:
         return uid is not None and uid in settings.admin_ids
+
+    def _admin_panel_keyboard() -> InlineKeyboardMarkup:
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats_inline"),
+                    InlineKeyboardButton(text="💳 Платежи", callback_data="admin_payments_inline"),
+                ],
+                [InlineKeyboardButton(text="💎 Подписки", callback_data="admin_subs_inline")],
+            ]
+        )
+
+    async def _send_admin_stats(msg: Message) -> None:
+        stats = database.get_stats()
+        await reply_admin_plain(
+            msg,
+            "\n".join(
+                [
+                    "📊 Статистика",
+                    f"👥 Пользователи: {stats['users']}",
+                    f"❓ Вопросы: {stats['questions']}",
+                    f"💬 Сообщения в диалогах: {stats['messages']}",
+                    f"💳 Оплат в журнале: {stats['payments']}",
+                    "",
+                    f"🤖 Модель ответов: {settings.deepseek_answer_model}",
+                ]
+            ),
+        )
+
+    async def _send_admin_payments(msg: Message, limit: int = 25) -> None:
+        rows = database.list_recent_payments(limit=limit)
+        if not rows:
+            await msg.answer("💳 Записей об оплатах пока нет.")
+            return
+        lines = [f"💳 Последние оплаты (до {limit}):", ""]
+        for row in rows:
+            uid = int(row["user_id"])
+            un = row["username"] or "—"
+            amt = int(row["total_amount"])
+            cur = str(row["currency"])
+            if cur == "RUB":
+                price_shown = f"{amt / 100:.2f} ₽"
+            else:
+                price_shown = f"{amt} {cur} (minor units)"
+            paid = str(row["paid_at"])[:19].replace("T", " ")
+            until = database.get_subscription_until(uid)
+            until_str = _fmt_sub_dt(until)
+            lines.append(
+                f"#{row['id']} | {paid} UTC | user {uid} @{un} | {price_shown}\n"
+                f"   подписка до: {until_str}"
+            )
+        await reply_admin_plain(msg, "\n".join(lines))
+
+    async def _send_admin_subscriptions(msg: Message, limit: int = 50) -> None:
+        rows = database.list_active_subscription_rows(limit=limit)
+        if not rows:
+            await msg.answer("📭 Активных подписок нет.")
+            return
+        lines = [f"💎 Активные подписки (до {limit}):", ""]
+        for row in rows:
+            uid = int(row["user_id"])
+            un = row["username"] or "—"
+            name = (row["full_name"] or "")[:40]
+            until = database.parse_iso_datetime(str(row["subscription_until"]))
+            started = database.parse_iso_datetime(str(row["subscription_period_start"]))
+            lines.append(
+                f"• {uid} @{un} — {name}\n"
+                f"  до: {_fmt_sub_dt(until)} | период с: {_fmt_sub_dt(started)}"
+            )
+        await reply_admin_plain(msg, "\n".join(lines))
 
     @dispatcher.message(Command("admin"))
     async def admin_panel_handler(message: Message) -> None:
@@ -260,7 +336,7 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             database.reset_user_dialog_and_queue(message.from_user.id)
         await message.answer(
             START_TEXT,
-            reply_markup=main_menu_keyboard(),
+            reply_markup=user_menu_keyboard(is_admin=bool(message.from_user and _is_admin(message.from_user.id))),
             parse_mode=ParseMode.HTML,
         )
 
@@ -324,6 +400,38 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         if callback.message:
             await callback.message.answer(ASK_QUESTION_INLINE_HINT)
         await callback.answer()
+
+    @dispatcher.callback_query(F.data == "admin_panel")
+    async def admin_panel_inline(callback: CallbackQuery) -> None:
+        await callback.answer()
+        if not callback.from_user or not _is_admin(callback.from_user.id):
+            return
+        if callback.message:
+            await callback.message.answer("🛠 Админ-панель", reply_markup=_admin_panel_keyboard())
+
+    @dispatcher.callback_query(F.data == "admin_stats_inline")
+    async def admin_stats_inline(callback: CallbackQuery) -> None:
+        await callback.answer()
+        if not callback.from_user or not _is_admin(callback.from_user.id):
+            return
+        if callback.message:
+            await _send_admin_stats(callback.message)
+
+    @dispatcher.callback_query(F.data == "admin_payments_inline")
+    async def admin_payments_inline(callback: CallbackQuery) -> None:
+        await callback.answer()
+        if not callback.from_user or not _is_admin(callback.from_user.id):
+            return
+        if callback.message:
+            await _send_admin_payments(callback.message, limit=25)
+
+    @dispatcher.callback_query(F.data == "admin_subs_inline")
+    async def admin_subs_inline(callback: CallbackQuery) -> None:
+        await callback.answer()
+        if not callback.from_user or not _is_admin(callback.from_user.id):
+            return
+        if callback.message:
+            await _send_admin_subscriptions(callback.message, limit=50)
 
     @dispatcher.callback_query(F.data.in_({"sub_month", "sub_year", "subscribe"}))
     async def subscribe_pay_callback(callback: CallbackQuery) -> None:
@@ -407,7 +515,7 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         database.extend_subscription_days(message.from_user.id, days)
         await message.answer(
             thank,
-            reply_markup=main_menu_keyboard(),
+            reply_markup=user_menu_keyboard(is_admin=_is_admin(message.from_user.id) if message.from_user else False),
             parse_mode=ParseMode.HTML,
         )
 
@@ -458,7 +566,10 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
 
         if not reply or not reply.strip():
             await message.answer(ASSISTANT_UNAVAILABLE_TEXT)
-            await message.answer(NEXT_QUESTION_HINT, reply_markup=main_menu_keyboard())
+            await message.answer(
+                NEXT_QUESTION_HINT,
+                reply_markup=user_menu_keyboard(is_admin=_is_admin(user_id)),
+            )
             return
 
         reply_body = reply.strip()
@@ -474,9 +585,15 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
                     parse_mode=ParseMode.HTML,
                 )
             else:
-                await message.answer(NEXT_QUESTION_HINT, reply_markup=main_menu_keyboard())
+                await message.answer(
+                    NEXT_QUESTION_HINT,
+                    reply_markup=user_menu_keyboard(is_admin=_is_admin(user_id)),
+                )
         else:
-            await message.answer(NEXT_QUESTION_HINT, reply_markup=main_menu_keyboard())
+            await message.answer(
+                NEXT_QUESTION_HINT,
+                reply_markup=user_menu_keyboard(is_admin=_is_admin(user_id)),
+            )
 
     async def ensure_user(message: Message) -> None:
         user = message.from_user
