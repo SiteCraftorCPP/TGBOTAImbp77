@@ -92,6 +92,15 @@ class Database:
             connection.execute(
                 "ALTER TABLE users ADD COLUMN free_bundle_used INTEGER NOT NULL DEFAULT 0"
             )
+        if "free_questions_used" not in columns:
+            connection.execute(
+                "ALTER TABLE users ADD COLUMN free_questions_used INTEGER NOT NULL DEFAULT 0"
+            )
+            # Backward compat: если раньше было free_bundle_used=1, считаем это как 1 использованный бесплатный ответ.
+            if "free_bundle_used" in columns:
+                connection.execute(
+                    "UPDATE users SET free_questions_used = 1 WHERE free_bundle_used = 1 AND free_questions_used = 0"
+                )
         if "subscription_until" not in columns:
             connection.execute("ALTER TABLE users ADD COLUMN subscription_until TEXT")
 
@@ -229,6 +238,41 @@ class Database:
                 (int(value), now, user_id),
             )
             connection.commit()
+
+    def get_free_questions_used(self, user_id: int) -> int:
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT free_questions_used FROM users WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        if not row:
+            return 0
+        try:
+            return int(row["free_questions_used"] or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def increment_free_questions_used(self, user_id: int, delta: int = 1) -> int:
+        """Увеличивает счётчик использованных бесплатных ответов; возвращает новое значение."""
+        now = utc_now().isoformat()
+        delta = max(0, int(delta))
+        with closing(self._connect()) as connection:
+            connection.execute(
+                """
+                UPDATE users
+                SET free_questions_used = COALESCE(free_questions_used, 0) + ?, updated_at = ?
+                WHERE user_id = ?
+                """,
+                (delta, now, user_id),
+            )
+            row = connection.execute(
+                "SELECT free_questions_used FROM users WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            connection.commit()
+        if not row:
+            return 0
+        return int(row["free_questions_used"] or 0)
 
     def get_subscription_until(self, user_id: int) -> datetime | None:
         with closing(self._connect()) as connection:

@@ -67,6 +67,7 @@ def _fmt_sub_dt(dt: datetime | None) -> str:
     return dt.strftime("%d.%m.%Y %H:%M UTC")
 
 DIALOG_MESSAGES_FOR_MODEL = 14
+FREE_QUESTIONS_LIMIT = 5
 
 _TYPING_REFRESH_SEC = 4.5
 
@@ -614,9 +615,9 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
             return
 
         subscribed = database.has_active_subscription(user_id)
-        free_ok = not database.get_free_bundle_used(user_id)
+        free_used = database.get_free_questions_used(user_id)
 
-        if not subscribed and not free_ok:
+        if not subscribed and free_used >= FREE_QUESTIONS_LIMIT:
             await message.answer(
                 SUBSCRIPTION_REQUIRED_TEXT,
                 reply_markup=subscription_cta_keyboard(),
@@ -653,24 +654,14 @@ async def build_dispatcher() -> tuple[Dispatcher, DeepSeekClient, Database]:
         await reply_long_text(message, reply_body)
         database.append_chat_message(user_id, "assistant", reply_body)
 
-        if not subscribed and free_ok:
-            if not _is_refusal_reply(reply_body):
-                database.set_free_bundle_used(user_id, True)
-                await message.answer(
-                    SUBSCRIPTION_OFFER_AFTER_FREE,
-                    reply_markup=subscription_cta_keyboard(),
-                    parse_mode=ParseMode.HTML,
-                )
-            else:
-                await message.answer(
-                    NEXT_QUESTION_HINT,
-                    reply_markup=user_menu_keyboard(is_admin=_is_admin(user_id)),
-                )
-        else:
-            await message.answer(
-                NEXT_QUESTION_HINT,
-                reply_markup=user_menu_keyboard(is_admin=_is_admin(user_id)),
-            )
+        # Считаем только “нормальные” ответы (не фразу отказа).
+        if not subscribed and not _is_refusal_reply(reply_body):
+            database.increment_free_questions_used(user_id, 1)
+
+        await message.answer(
+            NEXT_QUESTION_HINT,
+            reply_markup=user_menu_keyboard(is_admin=_is_admin(user_id)),
+        )
 
     async def ensure_user(message: Message) -> None:
         user = message.from_user
